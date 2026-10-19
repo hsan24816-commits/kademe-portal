@@ -1,6 +1,6 @@
 # Kademe Yönetim Portalı
 
-A web portal for a deputy general manager (Genel Müdür Yardımcısı), the directors who report to them, and the managers under each director. The interface is in Turkish and built phone-first, and it works on desktop too.
+A web portal for a deputy general manager (Genel Müdür Yardımcısı), the directors and managers who report to them, and the workers (çalışanlar) under each manager. The top account's title is editable, so it also fits a department head such as a Veri Analitiği Müdürü with workers directly below. The interface is in Turkish and built phone-first, and it works on desktop too.
 
 | Tab | What it does |
 | --- | --- |
@@ -15,14 +15,16 @@ A web portal for a deputy general manager (Genel Müdür Yardımcısı), the dir
 
 The server enforces these rules on every request. The browser only ever receives data the person is allowed to see.
 
-| | Deputy GM | Director | Manager |
+Levels, top to bottom: the top account (`gmy`), Direktör, Müdür, Çalışan. A person always reports to someone at a higher level, and the top account can have anyone directly under it.
+
+| | Top account | Director / Manager | Worker (Çalışan) |
 | --- | --- | --- | --- |
-| Projects and reports | All | Own and their managers' | Own |
+| Projects and reports | All | Own and everyone below them | Own |
 | Assign, edit, complete projects | All | Within their team | No (reports only) |
 | Meetings visible | All | Involving anyone in their team | Their own |
-| Invite to meetings | Anyone | Team, own manager, peers | Own director, deputy GM, peers |
+| Invite to meetings | Anyone | Team, own boss, peers | Own boss and chain above, peers |
 | Post in Lobi | Whole organisation or one team | Own team | No |
-| Add people, reset passwords, deactivate | Everyone | Own managers | No |
+| Add people, reset passwords, deactivate | Everyone | People below them | No |
 
 ## Accounts and sign-in
 
@@ -64,11 +66,13 @@ All demo accounts use the password `demo1234`. Never set `DEMO_MODE=1` on the re
 
 The app is one Node.js process plus a PostgreSQL database. Any host that runs Node or Docker works.
 
-**Render (easiest):** push this repository to GitHub, then in Render choose *New → Blueprint* and pick the repository. `render.yaml` creates the database and the web service; Render asks for `ADMIN_USERNAME`, `ADMIN_PASSWORD` (a temporary password of at least 8 characters) and `ADMIN_NAME`. Check the plan names in `render.yaml` against Render's current pricing before applying.
+**Your own computer on the work network:** see [docs/SELF_HOSTING.md](docs/SELF_HOSTING.md) (Docker, firewall, backups).
+
+**Render:** push this repository to GitHub, then in Render choose *New → Blueprint* and pick the repository. `render.yaml` creates the database and the web service; Render asks for `ADMIN_USERNAME`, `ADMIN_PASSWORD` (a temporary password of at least 8 characters) and `ADMIN_NAME`. Check the plan names in `render.yaml` against Render's current pricing before applying.
 
 **Railway, Fly.io, a VPS or company server:** use the `Dockerfile` (or `npm ci --omit=dev && npm start`) and set the variables from `.env.example`. Set `DATABASE_SSL=1` if the database requires SSL and `TRUST_PROXY=1` behind a proxy.
 
-Always serve it over HTTPS. In production the session cookie is `Secure`, so sign-in does not work over plain HTTP. For a quick test on a private network only, `INSECURE_COOKIES=1` turns that off.
+Always serve it over HTTPS. In production the session cookie is `Secure`, so sign-in does not work over plain HTTP. To run it on a computer inside the work network over plain HTTP, set `PLAIN_HTTP=1` and follow [docs/SELF_HOSTING.md](docs/SELF_HOSTING.md).
 
 After the first deploy: sign in with the `ADMIN_*` account, set a new password, then add directors and managers in **Ekibim**.
 

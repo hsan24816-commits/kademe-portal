@@ -37,7 +37,7 @@ module.exports = function projectRoutes(pool) {
 
   r.post('/projects', wrap(async (req, res) => {
     const me = req.user;
-    if (me.role === 'manager') throw new HttpError(403, 'Proje atama yetkiniz yok.');
+    if (me.role === 'employee') throw new HttpError(403, 'Proje atama yetkiniz yok.');
     const b = readBody(req.body || {});
     const org = await Org.load(pool);
     const owner = org.get(b.ownerId);

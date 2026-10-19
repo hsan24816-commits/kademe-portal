@@ -21,7 +21,7 @@ module.exports = function lobbyRoutes(pool) {
 
   r.post('/announcements', wrap(async (req, res) => {
     const me = req.user;
-    if (me.role === 'manager') throw new HttpError(403, 'Lobi\'de yayın yapma yetkiniz yok.');
+    if (me.role === 'employee') throw new HttpError(403, 'Lobi\'de yayın yapma yetkiniz yok.');
     const b = req.body || {};
     const kind = v.oneOf(b.kind, 'Tür', Object.keys(KIND));
     const title = v.str(b.title, 'Başlık', { min: 2, max: 140 });
@@ -30,12 +30,12 @@ module.exports = function lobbyRoutes(pool) {
     if (me.role === 'gmy') {
       if (b.audience && b.audience !== 'all') lead = v.uuid(b.audience, 'Hedef kitle');
     } else {
-      lead = me.id; // directors post to their own team
+      lead = me.id; // directors and managers post to their own team
     }
     const org = await Org.load(pool);
     if (lead) {
       const l = org.get(lead);
-      if (!l || !l.active || l.role === 'manager') throw new HttpError(400, 'Hedef kitle geçersiz.');
+      if (!l || !l.active || l.role === 'employee') throw new HttpError(400, 'Hedef kitle geçersiz.');
     }
     const id = await tx(pool, async (c) => {
       const { rows } = await c.query(

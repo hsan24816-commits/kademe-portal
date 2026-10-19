@@ -2,12 +2,12 @@
 const express = require('express');
 const { wrap, v, HttpError } = require('../http');
 const { tx } = require('../db');
-const { Org } = require('../org');
+const { Org, RANK } = require('../org');
 const auth = require('../auth');
 
 const COLORS = ['#1d4f86', '#0f7a8a', '#7c3aed', '#b45309', '#be185d', '#047857', '#4338ca', '#9a6700', '#0e7490', '#b91c1c', '#5b21b6', '#166534'];
 
-// Team management: the deputy GM manages everyone, a director manages their own managers.
+// Team management: the deputy GM manages everyone; directors and managers manage the people below them.
 module.exports = function userRoutes(pool) {
   const r = express.Router();
 
@@ -22,12 +22,13 @@ module.exports = function userRoutes(pool) {
 
   // Works out the role and manager a new or edited person ends up with, and checks the actor may set them.
   function placement(org, me, b) {
-    if (me.role === 'director') return { role: 'manager', managerId: me.id };
-    const role = v.oneOf(b.role, 'Rol', ['director', 'manager']);
-    if (role === 'director') return { role, managerId: me.id };
-    const boss = org.get(v.uuid(b.managerId, 'Bağlı olduğu direktör'));
-    if (!boss || !boss.active || boss.role !== 'director') throw new HttpError(400, 'Bağlı olduğu direktör geçersiz.');
-    return { role, managerId: boss.id };
+    // With no role given, the new person lands one level below the actor.
+    const role = b.role === undefined ? Object.keys(RANK).find((k) => RANK[k] === RANK[me.role] + 1) : v.oneOf(b.role, 'Rol', ['director', 'manager', 'employee']);
+    if (RANK[role] <= RANK[me.role]) throw new HttpError(403, 'Bu rolde kişi ekleme yetkiniz yok.');
+    const bosses = org.validBosses(me, role);
+    const managerId = b.managerId ? v.uuid(b.managerId, 'Bağlı olduğu kişi') : me.id;
+    if (!bosses.some((x) => x.id === managerId)) throw new HttpError(400, 'Bağlı olduğu kişi geçersiz.');
+    return { role, managerId };
   }
 
   async function emailFree(email, exceptId) {
@@ -39,7 +40,7 @@ module.exports = function userRoutes(pool) {
 
   r.post('/users', wrap(async (req, res) => {
     const me = req.user;
-    if (me.role === 'manager') throw new HttpError(403, 'Kişi ekleme yetkiniz yok.');
+    if (me.role === 'employee') throw new HttpError(403, 'Kişi ekleme yetkiniz yok.');
     const b = req.body || {};
     const c = readCommon(b);
     const username = v.str(b.username, 'Kullanıcı adı', { min: 3, max: 40 }).toLowerCase();
@@ -66,11 +67,11 @@ module.exports = function userRoutes(pool) {
     const b = req.body || {};
     const c = readCommon(b);
     let pl = { role: x.role, managerId: x.manager_id };
-    if (me.role === 'gmy' && x.role !== 'gmy') {
+    if (b.role !== undefined && x.role !== 'gmy') {
       pl = placement(org, me, b);
-      if (pl.managerId === x.id) throw new HttpError(400, 'Kişi kendisine bağlanamaz.');
-      if (x.role === 'director' && pl.role === 'manager' && org.subs(x).length) {
-        throw new HttpError(400, 'Bu direktöre bağlı müdürler var. Önce onları başka bir direktöre taşıyın.');
+      if (pl.managerId === x.id || org.isAbove(x, org.get(pl.managerId))) throw new HttpError(400, 'Kişi kendisine veya kendi ekibinden birine bağlanamaz.');
+      if (org.subs(x).some((s) => RANK[s.role] <= RANK[pl.role])) {
+        throw new HttpError(400, 'Bu kişiye bağlı olanlar var. Önce onları başka birine taşıyın.');
       }
     }
     await emailFree(c.email, x.id);
@@ -96,7 +97,7 @@ module.exports = function userRoutes(pool) {
     const org = await Org.load(pool);
     const x = org.get(v.uuid(req.params.id, 'Kişi'));
     if (!x || !x.active || !org.canManageUser(req.user, x)) throw new HttpError(404, 'Kişi bulunamadı.');
-    if (org.subs(x).length) throw new HttpError(400, 'Önce bu kişiye bağlı müdürleri başka bir direktöre taşıyın.');
+    if (org.subs(x).length) throw new HttpError(400, 'Önce bu kişiye bağlı kişileri başka birine taşıyın.');
     const heir = x.manager_id || req.user.id;
     await tx(pool, async (c) => {
       await c.query('UPDATE users SET active=false WHERE id=$1', [x.id]);

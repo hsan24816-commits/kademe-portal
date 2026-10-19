@@ -95,7 +95,9 @@ const saveView=v=>{try{sessionStorage.setItem(viewKey,JSON.stringify(v));}catch(
 
 /* ---------- domain ---------- */
 const KIND={duyuru:'Duyuru',kural:'Kural',hatirlatma:'Hatırlatma'};
-const ROLE={gmy:'Genel Müdür Yardımcısı',director:'Direktör',manager:'Müdür'};
+const ROLE={gmy:'Yönetici',director:'Direktör',manager:'Müdür',employee:'Çalışan'};
+const RANK={gmy:0,director:1,manager:2,employee:3};
+const isLead=u=>u.role!=='employee';
 const HEALTH={iyi:['Yolunda','good'],risk:['Riskli','warn'],gecikme:['Gecikmede','bad']};
 const byId=id=>db.users.find(u=>u.id===id);
 const me=()=>db.me;
@@ -135,7 +137,7 @@ function go(name,params){state.view=Object.assign({name},params||{});saveView(st
 const TAB_OF={home:'home',meetings:'home',team:'home',weekly:'home',projects:'projects',project:'projects',lobby:'lobby',inbox:'inbox',games:'games',settings:'settings'};
 
 /* ---------- views ---------- */
-const DEMO=[['Genel Müdür Yardımcısı',[['halit','Halit Özdamar']]],['Direktörler',[['ayse','Ayşe Kaya'],['murat','Murat Demir'],['elif','Elif Şahin']]],['Müdürler',[['emre','Emre Yıldız'],['zeynep','Zeynep Arslan'],['can','Can Öztürk'],['selin','Selin Aydın'],['burak','Burak Koç'],['deniz','Deniz Çelik']]]];
+const DEMO=[['Genel Müdür Yardımcısı',[['halit','Halit Özdamar']]],['Direktörler',[['ayse','Ayşe Kaya'],['murat','Murat Demir'],['elif','Elif Şahin']]],['Müdürler',[['emre','Emre Yıldız'],['zeynep','Zeynep Arslan'],['can','Can Öztürk'],['selin','Selin Aydın'],['burak','Burak Koç'],['deniz','Deniz Çelik']]],['Çalışanlar',[['ali','Ali Vural'],['ece','Ece Tan']]]];
 function vLogin(err,uname){
   return `<div class="login">
     <div class="brand">${LOGO}<b>${esc(trUp(config.orgName))}</b><small>Yönetim Portalı</small></div>
@@ -205,7 +207,7 @@ function vHome(){
   const up=visMeetings(true).filter(m=>mEnd(m)>new Date()).slice(0,3);
   const needs=mine.filter(p=>staleDays(p)>=7);
   const watch=team.filter(p=>p.health!=='iyi'||staleDays(p)>=7).sort((a,b)=>(b.health==='gecikme')-(a.health==='gecikme')).slice(0,4);
-  const lead=u.role!=='manager';
+  const lead=isLead(u);
   const tile3=lead?`<button class="tile" data-act="go" data-v="team">${ic('org')}Ekibim</button>`:`<button class="tile" data-act="quickReport">${ic('trend')}Rapor gir</button>`;
   return `${vHeader()}
   <div><h1 class="hello">Merhaba ${esc(first(u.name))}</h1><div class="muted" style="font-size:16px">${esc(u.title)}</div></div>
@@ -230,7 +232,7 @@ function vHome(){
   ${lead?`<div class="h2">Ekip durumu <button class="link" data-act="go" data-v="team">Tümü</button></div>
   <div class="card">${subs(u).map(s=>{const pr=personProg(s.id);return `<button class="li" data-act="openPerson" data-id="${s.id}">${av(s)}<div class="grow"><div class="row between"><b class="ellip">${esc(s.name)}</b><span class="small muted num">${pr.n} proje · ${pct(pr.avg)}</span></div><div class="small muted ellip" style="margin-bottom:6px">${esc(s.title)}</div>${bar(pr.avg,pr.bad?'warn':'good','thin')}</div>${ic('chevR','chev')}</button>`;}).join('')||'<div class="muted">Henüz bağlı kişi yok.</div>'}</div>`:''}
   <button class="dashed" data-act="${lead?'newProject':'quickReport'}">${ic('plus')}${lead?'Yeni proje ata':'İlerleme raporu gir'}</button>
-  <div class="lock">${ic('lock')}<span>${u.role==='gmy'?'Tüm direktörlük ve müdürlükleri görüyorsunuz.':u.role==='director'?'Yalnızca kendi direktörlüğünüz ve bağlı müdürleriniz görünür.':'Yalnızca size atanan projeler ve toplantılarınız görünür.'}</span></div>`;
+  <div class="lock">${ic('lock')}<span>${u.role==='gmy'?'Tüm direktörlük ve müdürlükleri görüyorsunuz.':u.role==='employee'?'Yalnızca size atanan projeler ve toplantılarınız görünür.':'Yalnızca kendinizin ve size bağlı kişilerin işleri görünür.'}</span></div>`;
 }
 
 function vProjects(){
@@ -245,7 +247,7 @@ function vProjects(){
   <div class="pills"><button class="pill ${state.projTab==='active'?'on':''}" data-act="projTab" data-v="active">Aktif · ${na}</button><button class="pill ${state.projTab==='done'?'on':''}" data-act="projTab" data-v="done">Tamamlanan · ${nd}</button></div>
   ${people.length>1?`<label class="field"><span>Kişiye göre</span><select class="inp" id="proj-person" data-change="projPerson"><option value="all">Herkes</option>${people.map(p=>`<option value="${p.id}" ${state.projPerson===p.id?'selected':''}>${esc(p.name)}</option>`).join('')}</select></label>`:''}
   ${list.length?list.map(pCard).join(''):`<div class="empty">${state.projTab==='active'?'Size atanmış aktif proje yok.':'Tamamlanan proje yok.'}</div>`}
-  ${u.role!=='manager'?`<button class="dashed" data-act="newProject">${ic('plus')}Yeni proje ata</button>`:''}`;
+  ${isLead(u)?`<button class="dashed" data-act="newProject">${ic('plus')}Yeni proje ata</button>`:''}`;
 }
 function pCard(p){const o=byId(p.ownerId);return `<button class="card pcard" data-act="openProject" data-id="${p.id}">
   <div class="row between" style="align-items:flex-start"><span class="t grow">${esc(p.name)}</span>${hChip(p)}</div>
@@ -298,7 +300,7 @@ function vProject(){
 }
 
 function vMeetings(){
-  const u=me(),lead=u.role!=='manager';
+  const u=me(),lead=isLead(u);
   const ws=addD(sow(new Date()),state.weekOff*7);
   const list=visMeetings(state.mtgScope==='mine'||!lead);
   const days=[...Array(7)].map((_,i)=>addD(ws,i));
@@ -327,9 +329,9 @@ function vTeam(){
   const root=u.role==='gmy'?u:u;
   const node=x=>{const pr=personProg(x.id);const k=subs(x);return `<div><button class="card node" data-act="openPerson" data-id="${x.id}">${av(x,40)}<div class="grow"><div class="row between"><b class="ellip">${esc(x.name)}</b><span class="small muted num">${pr.n} proje</span></div><div class="small muted ellip" style="margin-bottom:6px">${esc(x.title)}</div><div class="row">${bar(pr.avg,pr.bad?'warn':'good','thin')}<span class="small num" style="min-width:36px;text-align:right">${pct(pr.avg)}</span></div></div></button>${k.length?`<div class="kids" style="margin-top:10px">${k.map(node).join('')}</div>`:''}</div>`;};
   return `<button class="back" data-act="tab" data-v="home">${ic('chevL')}Ana sayfa</button>
-  <h1 class="page-h">Ekibim</h1><p class="lead">${u.role==='gmy'?'Size bağlı direktörler ve onların müdürleri.':'Size bağlı müdürler.'} Bir kişiye dokunarak projelerini ve toplantılarını görün.</p>
+  <h1 class="page-h">Ekibim</h1><p class="lead">Size bağlı kişiler ve onların ekipleri. Bir kişiye dokunarak projelerini ve toplantılarını görün.</p>
   <div class="tree">${node(root)}</div>
-  ${u.role!=='manager'?`<button class="dashed" data-act="newPerson">${ic('plus')}${u.role==='gmy'?'Kişi ekle':'Müdür ekle'}</button>`:''}`;
+  ${isLead(u)?`<button class="dashed" data-act="newPerson">${ic('plus')}Kişi ekle</button>`:''}`;
 }
 
 function vWeekly(){
@@ -338,10 +340,10 @@ function vWeekly(){
   const at=(p,t)=>{let v=0;p.reports.forEach(r=>{if(new Date(r.at).getTime()<=t)v=r.progress;});return v;};
   const people=scope(u).map(byId).filter(x=>x&&ps.some(p=>p.ownerId===x.id));
   const reps=[];ps.forEach(p=>p.reports.forEach(r=>{if(new Date(r.at).getTime()>=cut)reps.push({p,r});}));reps.sort((a,b)=>new Date(b.r.at)-new Date(a.r.at));
-  const mt=visMeetings(u.role==='manager').filter(m=>new Date(m.at).getTime()>=cut&&new Date(m.at)<=new Date());
+  const mt=visMeetings(!isLead(u)).filter(m=>new Date(m.at).getTime()>=cut&&new Date(m.at)<=new Date());
   const totalDelta=avg(actv.map(p=>p.progress-at(p,cut)));
   return `<button class="back" data-act="tab" data-v="home">${ic('chevL')}Ana sayfa</button>
-  <h1 class="page-h">Haftalık rapor</h1><p class="lead">${fD(cut,{day:'numeric',month:'long'})} – ${fD(new Date(),{day:'numeric',month:'long'})} arası, ${u.role==='gmy'?'tüm kurum':u.role==='director'?'direktörlüğünüz':'projeleriniz'}.</p>
+  <h1 class="page-h">Haftalık rapor</h1><p class="lead">${fD(cut,{day:'numeric',month:'long'})} – ${fD(new Date(),{day:'numeric',month:'long'})} arası, ${u.role==='gmy'?'tüm kurum':u.role==='employee'?'projeleriniz':'ekibiniz'}.</p>
   <div class="two">
     <div class="card stat"><div class="k">Ortalama ilerleme</div><div class="v num">${pct(avg(actv.map(p=>p.progress)))} <span class="delta up small">${totalDelta>=0?'+':''}${Math.round(totalDelta)} puan</span></div></div>
     <div class="card stat"><div class="k">Girilen rapor</div><div class="v num">${reps.length} rapor</div></div>
@@ -367,7 +369,7 @@ function vLobby(){
     <div class="row between" style="margin-top:12px;flex-wrap:wrap;gap:8px"><div class="row small muted">${av(by,24)}${esc(by.name)} · ${rel(a.at)}</div>
     <div class="row" style="gap:8px">${mineOrBoss?`<button class="btn sm" data-act="ackList" data-id="${a.id}">${read}/${aud.length} okudu</button>`:''}
     ${a.by===u.id?(u.role==='gmy'||a.by===u.id?`<button class="iconbtn" data-act="deleteAnn" data-id="${a.id}" aria-label="Sil">${ic('trash')}</button>`:''):acked?`<span class="chip good">${ic('check','sm')}Okudum</span>`:`<button class="btn sm pri" data-act="ack" data-id="${a.id}">Okudum, uyacağım</button>`}</div></div></article>`;}).join(''):'<div class="empty">Henüz duyuru yok.</div>'}
-  ${u.role!=='manager'?`<button class="dashed" data-act="newAnn">${ic('plus')}Lobi'de yayınla</button>`:''}`;
+  ${isLead(u)?`<button class="dashed" data-act="newAnn">${ic('plus')}Lobi'de yayınla</button>`:''}`;
 }
 
 const NKIND={meeting:['calendar','Toplantı'],report:['trend','Rapor'],lobby:['megaphone','Lobi'],comment:['msg','Yorum'],project:['folder','Proje']};
@@ -407,9 +409,10 @@ function vSettings(){
   const prefs=[['meeting','Toplantı davetleri ve yanıtlar'],['report','İlerleme raporları'],['lobby','Lobi duyuruları'],['comment','Proje yorumları'],['project','Proje atamaları']];
   return `<h1 class="page-h">Ayarlar</h1>
   <div class="card row">${av(u,56)}<div class="grow"><b style="font-size:18px">${esc(u.name)}</b><div class="muted">${esc(u.title)}</div><div class="small faint">${esc(u.dept)}${boss?' · Bağlı: '+esc(boss.name):''}</div></div></div>
-  ${u.role!=='manager'?`<button class="card row" data-act="go" data-v="team" style="color:inherit;text-align:left">${ic('org')}<div class="grow"><b>Ekip yönetimi</b><div class="small muted">${u.role==='gmy'?'Direktör ve müdür ekleyin, bağlılıkları düzenleyin':'Müdür ekleyin ve düzenleyin'}</div></div>${ic('chevR','chev')}</button>`:''}
+  ${isLead(u)?`<button class="card row" data-act="go" data-v="team" style="color:inherit;text-align:left">${ic('org')}<div class="grow"><b>Ekip yönetimi</b><div class="small muted">Ekibinize kişi ekleyin, bağlılıkları düzenleyin</div></div>${ic('chevR','chev')}</button>`:''}
   <form class="card stack" data-form="profile"><b>Profil bilgileri</b>
     <label class="field"><span>Ad soyad</span><input class="inp" id="pf-name" name="name" value="${esc(u.name)}" required></label>
+    ${u.role==='gmy'?`<label class="field"><span>Ünvan</span><input class="inp" id="pf-title" name="title" value="${esc(u.title)}" required></label>`:''}
     <div class="grid2"><label class="field"><span>E-posta</span><input class="inp" id="pf-mail" name="email" type="email" value="${esc(u.email)}"></label>
     <label class="field"><span>Telefon</span><input class="inp" id="pf-phone" name="phone" value="${esc(u.phone)}" placeholder="0 5xx xxx xx xx"></label></div>
     <button class="btn pri" type="submit">Kaydet</button></form>
@@ -493,16 +496,17 @@ const SHEETS={
     <div class="meta" style="font-size:14px"><span>${ic('org')}${ROLE[x.role]} · ${esc(x.dept)}</span>${boss?`<span>${ic('users')}Bağlı: ${esc(boss.name)}</span>`:''}<span>${ic('mail')}${esc(x.email)}</span>${x.phone?`<span>${esc(x.phone)}</span>`:''}</div>
     <div><b>Projeler · ${ps.length}</b>${ps.length?ps.map(p=>`<button class="li" data-act="openProject" data-id="${p.id}"><div class="grow"><div class="row between"><b class="ellip">${esc(p.name)}</b>${hChip(p)}</div><div class="row" style="margin-top:6px">${bar(p.progress,barCls(p),'thin')}<span class="small num" style="min-width:36px;text-align:right">${pct(p.progress)}</span></div></div></button>`).join(''):'<div class="muted small">Atanmış proje yok.</div>'}</div>
     <div><b>Yaklaşan toplantılar</b>${ms.length?ms.map(meetingRow).join(''):'<div class="muted small">Ortak yaklaşan toplantı yok.</div>'}</div>
-    <div class="grid2">${x.id!==u.id?`<button class="btn pri" data-act="meetWith" data-id="${x.id}">${ic('calendar')}Toplantı planla</button>`:''}${u.role!=='manager'&&scope(u).includes(x.id)?`<button class="btn" data-act="newProjectFor" data-id="${x.id}">${ic('plus')}Proje ata</button>`:''}</div>
+    <div class="grid2">${x.id!==u.id?`<button class="btn pri" data-act="meetWith" data-id="${x.id}">${ic('calendar')}Toplantı planla</button>`:''}${isLead(u)&&scope(u).includes(x.id)?`<button class="btn" data-act="newProjectFor" data-id="${x.id}">${ic('plus')}Proje ata</button>`:''}</div>
     ${canEdit?`<div class="grid2"><button class="btn" data-act="editPerson" data-id="${x.id}">${ic('edit')}Düzenle</button><button class="btn" data-act="resetPw" data-id="${x.id}">${ic('key')}Şifre sıfırla</button></div><button class="btn danger block" data-act="removePerson" data-id="${x.id}">${ic('trash')}Portaldan kaldır</button>`:''}`;},
-  personForm(){const x=state.sheet.id?byId(state.sheet.id):null,u=me(),dirs=active().filter(d=>d.role==='director');
-    const role=x?x.role:(u.role==='gmy'?'director':'manager');
-    return `<div class="sh-h"><h2>${x?'Kişiyi düzenle':u.role==='gmy'?'Kişi ekle':'Müdür ekle'}</h2>${closeBtn}</div>
+  personForm(){const x=state.sheet.id?byId(state.sheet.id):null,u=me();
+    const roles=['director','manager','employee'].filter(r=>RANK[r]>RANK[u.role]);
+    const role=x?x.role:roles[0];
+    return `<div class="sh-h"><h2>${x?'Kişiyi düzenle':'Kişi ekle'}</h2>${closeBtn}</div>
     <form class="stack" data-form="person" data-id="${x?x.id:''}">
       <label class="field"><span>Ad soyad</span><input class="inp" id="ps-name" name="name" required value="${esc(x?x.name:'')}"></label>
-      <label class="field"><span>Ünvan</span><input class="inp" id="ps-title" name="title" required value="${esc(x?x.title:'')}" placeholder="Örn. İnsan Kaynakları Müdürü"></label>
-      ${u.role==='gmy'?`<div class="field"><span>Rol</span><div class="radios"><label><input type="radio" name="role" value="director" ${role==='director'?'checked':''} data-role-radio><span>Direktör</span></label><label><input type="radio" name="role" value="manager" ${role==='manager'?'checked':''} data-role-radio><span>Müdür</span></label></div></div>
-      <label class="field" id="ps-boss-wrap" ${role==='director'?'hidden':''}><span>Bağlı olduğu direktör</span><select class="inp" id="ps-boss" name="boss">${dirs.filter(d=>!x||d.id!==x.id).map(d=>`<option value="${d.id}" ${x&&x.managerId===d.id?'selected':''}>${esc(d.name)}</option>`).join('')}</select></label>`:`<input type="hidden" name="role" value="manager"><input type="hidden" name="boss" value="${u.id}">`}
+      <label class="field"><span>Ünvan</span><input class="inp" id="ps-title" name="title" required value="${esc(x?x.title:'')}" placeholder="Örn. Veri Analisti"></label>
+      ${x&&x.role==='gmy'?'':`<div class="field"><span>Rol</span><div class="radios">${roles.map(r=>`<label><input type="radio" name="role" value="${r}" ${role===r?'checked':''} data-role-radio><span>${ROLE[r]}</span></label>`).join('')}</div></div>
+      <label class="field" id="ps-boss-wrap"><span>Bağlı olduğu kişi</span><select class="inp" id="ps-boss" name="boss">${bossOptions(role,x)}</select></label>`}
       <label class="field"><span>Birim</span><input class="inp" id="ps-dept" name="dept" value="${esc(x?x.dept:(u.role==='director'?u.dept:''))}" placeholder="Örn. İnsan Kaynakları"></label>
       <label class="field"><span>E-posta</span><input class="inp" id="ps-mail" name="email" type="email" value="${esc(x?x.email||'':'')}" placeholder="ad.soyad@sirket.com"></label>
       ${x?'':`<label class="field"><span>Kullanıcı adı</span><input class="inp" id="ps-user" name="username" required autocapitalize="none" pattern="[a-z0-9._\\-]+" title="Küçük harf, rakam, nokta, alt çizgi, tire" placeholder="ad.soyad"></label><div class="faint small">Geçici şifre otomatik oluşturulur ve kaydettikten sonra gösterilir. Kişi ilk girişte kendi şifresini belirler.</div>`}
@@ -516,6 +520,9 @@ const SHEETS={
     <div class="grid2"><button class="btn" data-act="closeSheet">Vazgeç</button><button class="btn pri" data-act="confirmYes">${esc(state.sheet.yes||'Onayla')}</button></div>`;},
   game(){return gameView();}
 };
+// People the current user may place a person of `role` under (mirrors Org.validBosses on the server).
+function bossOptions(role,x){const u=me(),sc=scope(u);const cur=x?x.managerId:u.id;
+  return active().filter(b=>sc.includes(b.id)&&RANK[b.role]<RANK[role]&&(!x||(b.id!==x.id&&!isAbove(x,b)))).map(b=>`<option value="${b.id}" ${b.id===cur?'selected':''}>${esc(b.name)}${b.id===u.id?' (siz)':''} · ${ROLE[b.role]}</option>`).join('');}
 function openSheet(type,extra){state.sheet=Object.assign({type,key:type+uid()},extra||{});renderSheet();setTimeout(()=>{const f=$('#sheet-root .sheet input.inp, #sheet-root .sheet textarea');if(f&&type!=='game'&&!f.value)f.focus({preventScroll:true});},60);}
 function closeSheet(){stopTimer();state.sheet=null;state.game=null;render();}
 function askConfirm(title,text,yes,fn){state.confirmFn=fn;openSheet('confirm',{title,text,yes});}
@@ -707,13 +714,13 @@ const F={
   comment:(f,d)=>act(()=>api('POST',`/projects/${f.dataset.id}/comments`,{text:val(d,'text')}),'Yorum eklendi'),
   async ann(f,d){const body={kind:d.get('kind'),title:val(d,'title'),body:val(d,'body'),audience:d.get('audience'),pinned:!!d.get('pinned')};
     try{await api('POST','/announcements',body);state.sheet=null;state.lobbyKind='all';await refresh();render();toast('Lobi\'de yayınlandı');}catch(e){toast(e.message);}},
-  async person(f,d){const id=f.dataset.id;const body={name:val(d,'name'),title:val(d,'title'),dept:val(d,'dept'),email:val(d,'email'),role:d.get('role'),managerId:d.get('role')==='manager'?d.get('boss'):undefined};
+  async person(f,d){const id=f.dataset.id;const body={name:val(d,'name'),title:val(d,'title'),dept:val(d,'dept'),email:val(d,'email'),role:d.get('role'),managerId:d.get('role')?d.get('boss'):undefined};
     const err=$('#ps-err');
     try{if(id){await api('PATCH',`/users/${id}`,body);state.sheet=null;await refresh();render();toast('Kaydedildi');}
       else{body.username=val(d,'username').toLowerCase();const r=await api('POST','/users',body);await refresh();if(state.view.name!=='team')go('team');else render();
         openSheet('tempPw',{title:'Kişi eklendi',name:body.name,username:r.username,password:r.tempPassword});}}
     catch(e){err.textContent=e.message;}},
-  profile:(f,d)=>act(()=>api('PATCH','/me',{name:val(d,'name'),email:val(d,'email'),phone:val(d,'phone')}),'Profil kaydedildi'),
+  profile:(f,d)=>act(()=>api('PATCH','/me',{name:val(d,'name'),email:val(d,'email'),phone:val(d,'phone'),title:d.get('title')!==null?val(d,'title'):undefined}),'Profil kaydedildi'),
   async password(f,d){const e=$('#pw-err');if(d.get('nw')!==d.get('nw2')){e.textContent='Yeni şifreler eşleşmiyor.';return;}
     try{await api('POST','/me/password',{current:String(d.get('cur')),next:String(d.get('nw'))});f.reset();e.textContent='';toast('Şifre güncellendi. Diğer cihazlardaki oturumlar kapatıldı.');}
     catch(err){e.textContent=err.message;}},
@@ -756,7 +763,7 @@ document.addEventListener('input',e=>{const t=e.target;
 document.addEventListener('change',e=>{const t=e.target;
   if(t.dataset.change==='projPerson'){state.projPerson=t.value;render();}
   if(t.dataset.pref){const k=t.dataset.pref,on=t.checked;me().prefs[k]=on;api('PATCH','/me',{prefs:{[k]:on}}).then(()=>toast(on?'Bildirim açıldı':'Bildirim kapatıldı'),err=>{toast(err.message);t.checked=!on;me().prefs[k]=!on;});}
-  if(t.hasAttribute('data-role-radio')){const w=$('#ps-boss-wrap');if(w)w.hidden=t.value!=='manager';}
+  if(t.hasAttribute('data-role-radio')){const sel=$('#ps-boss');if(sel){const prev=sel.value;const x=state.sheet&&state.sheet.id?byId(state.sheet.id):null;sel.innerHTML=bossOptions(t.value,x);if([...sel.options].some(o=>o.value===prev))sel.value=prev;}}
 });
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'&&state.sheet){closeSheet();return;}

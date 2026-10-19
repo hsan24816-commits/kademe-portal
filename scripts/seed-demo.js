@@ -33,12 +33,14 @@ async function seedDemo(pool, { reset = false, password = process.env.DEMO_PASSW
       ['selin', 'Selin Aydın', 'Kalite Yönetimi Müdürü', 'manager', 'murat', 'Operasyon'],
       ['burak', 'Burak Koç', 'Bütçe ve Raporlama Müdürü', 'manager', 'elif', 'Finans'],
       ['deniz', 'Deniz Çelik', 'Satın Alma Müdürü', 'manager', 'elif', 'Finans'],
+      ['ali', 'Ali Vural', 'Veri Analisti', 'employee', 'zeynep', 'Bilgi Teknolojileri'],
+      ['ece', 'Ece Tan', 'Veri Mühendisi', 'employee', 'zeynep', 'Bilgi Teknolojileri'],
     ];
     for (const [i, [un, name, title, role, boss, dept]] of people.entries()) {
       const r = await c.query(
         `INSERT INTO users (username, email, name, title, role, manager_id, dept, color, password_hash, created_at)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, now() - make_interval(secs => $10)) RETURNING id`,
-        [un, `${un}@kademe.example`, name, title, role, boss ? U[boss] : null, dept, COLORS[i], hash, 1000 - i]
+        [un, `${un}@kademe.example`, name, title, role, boss ? U[boss] : null, dept, COLORS[i % COLORS.length], hash, 1000 - i]
       );
       U[un] = r.rows[0].id;
     }
@@ -58,6 +60,8 @@ async function seedDemo(pool, { reset = false, password = process.env.DEMO_PASSW
       ['p11', 'Tedarikçi portalı', 'Tedarikçilerin teklif ve faturalarını yükleyebileceği web portalı.', 'deniz', 'elif', -55, -5, [[-30, 5, 'iyi', 'Gereksinimler yazıldı.'], [-12, 15, 'gecikme', 'Yazılım firmasının teslimi iki hafta kaydı.']]],
       ['p12', 'Satın alma süreç iyileştirme', 'Onay adımlarının azaltılması ve sürenin kısaltılması.', 'deniz', 'elif', -100, -20, [[-40, 60, 'iyi', 'Yeni onay matrisi taslağı hazır.'], [-25, 100, 'iyi', 'Yeni süreç yürürlüğe girdi.']], 'done'],
       ['p13', 'Maliyet azaltma programı', 'Genel giderlerde yüzde 8 tasarruf hedefi.', 'elif', 'halit', -60, 70, [[-20, 30, 'iyi', 'Tasarruf kalemleri belirlendi.'], [-9, 40, 'risk', 'Kira görüşmeleri uzuyor.'], [-3, 47, 'risk', 'Enerji giderlerinde hedefin gerisindeyiz.']]],
+      ['p15', 'Satış verisi kalite kontrolü', 'BI paneline gelecek satış verisinde eksik ve hatalı kayıtların temizlenmesi.', 'ali', 'zeynep', -12, 20, [[-7, 20, 'iyi', 'Kontrol kuralları yazıldı.'], [-2, 35, 'iyi', 'İlk temizlik raporu Zeynep Hanım ile paylaşıldı.']]],
+      ['p16', 'Veri akışı otomasyonu', 'Kaynak sistemlerden günlük veri yüklemesinin otomatikleştirilmesi.', 'ece', 'zeynep', -20, 30, [[-10, 25, 'iyi', 'Zamanlayıcı kuruldu.'], [-3, 40, 'risk', 'Satış sisteminden erişim izni bekleniyor.']]],
       ['p14', 'Kurumsal strateji 2027', '2027 stratejik önceliklerinin ve hedef kartlarının hazırlanması.', 'halit', 'halit', -25, 55, [[-14, 20, 'iyi', 'Çalıştay takvimi belirlendi.'], [-4, 35, 'iyi', 'Direktörlerden stratejik öncelik girdileri alındı.']]],
     ];
     for (const [key, name, desc, owner, by, start, due, reps, status = 'active'] of projects) {
@@ -125,7 +129,7 @@ async function seedDemo(pool, { reset = false, password = process.env.DEMO_PASSW
     // A few game results so the leaderboard is not empty
     let s = 20261019;
     const rnd = () => { s = (s * 1103515245 + 12345) % 2147483648; return s / 2147483648; };
-    const skill = { halit: .62, ayse: .7, murat: .5, elif: .58, emre: .74, zeynep: .8, can: .45, selin: .6, burak: .55, deniz: .5 };
+    const skill = { halit: .62, ayse: .7, murat: .5, elif: .58, emre: .74, zeynep: .8, can: .45, selin: .6, burak: .55, deniz: .5, ali: .66, ece: .57 };
     for (const un of Object.keys(U)) {
       const n = 3 + Math.floor(rnd() * 8);
       for (let i = 0; i < n; i++) {

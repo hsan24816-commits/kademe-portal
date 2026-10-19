@@ -47,11 +47,17 @@ async function createSession(pool, userId) {
   return token;
 }
 
+// True when the site is served over https. PLAIN_HTTP=1 (or the older INSECURE_COOKIES=1) is for a
+// portal on a private network reached over plain http, where https-only cookies and upgrades would break sign-in.
+function httpsOnly() {
+  return process.env.NODE_ENV === 'production' && process.env.PLAIN_HTTP !== '1' && process.env.INSECURE_COOKIES !== '1';
+}
+
 function setSessionCookie(res, token) {
   res.cookie(COOKIE, token, {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production' && process.env.INSECURE_COOKIES !== '1',
+    secure: httpsOnly(),
     maxAge: SESSION_DAYS * 86400e3,
     path: '/',
   });
@@ -146,6 +152,6 @@ function loginLimiter({ max = 10, ipMax = max * 5, windowMs = 15 * 60e3 } = {}) 
 }
 
 module.exports = {
-  COOKIE, hashPassword, verifyPassword, DUMMY_HASH, checkPasswordPolicy, tempPassword,
+  COOKIE, httpsOnly, hashPassword, verifyPassword, DUMMY_HASH, checkPasswordPolicy, tempPassword,
   createSession, setSessionCookie, destroySession, sessionMiddleware, requireUser, csrfGuard, loginLimiter,
 };

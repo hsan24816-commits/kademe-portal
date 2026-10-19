@@ -61,6 +61,8 @@ module.exports = function authRoutes(pool) {
     const email = b.email !== undefined ? v.str(b.email, 'E-posta', { max: 120 }) : u.email;
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new HttpError(400, 'E-posta geçersiz.');
     const phone = b.phone !== undefined ? v.str(b.phone, 'Telefon', { max: 30 }) : u.phone;
+    // Only the top account sets its own title; everyone else's is set by the person above them.
+    const title = b.title !== undefined && u.role === 'gmy' ? v.str(b.title, 'Ünvan', { min: 2, max: 100 }) : u.title;
     const theme = b.theme !== undefined ? v.oneOf(b.theme, 'Tema', ['system', 'light', 'dark']) : u.theme;
     let prefs = u.prefs || {};
     if (b.prefs && typeof b.prefs === 'object') {
@@ -72,8 +74,8 @@ module.exports = function authRoutes(pool) {
       if (dupe.rowCount) throw new HttpError(400, 'Bu e-posta başka bir hesapta kullanılıyor.');
     }
     const { rows } = await pool.query(
-      'UPDATE users SET name=$1, email=$2, phone=$3, theme=$4, prefs=$5 WHERE id=$6 RETURNING *',
-      [name, email, phone, theme, JSON.stringify(prefs), u.id]
+      'UPDATE users SET name=$1, email=$2, phone=$3, theme=$4, prefs=$5, title=$6 WHERE id=$7 RETURNING *',
+      [name, email, phone, theme, JSON.stringify(prefs), title, u.id]
     );
     res.json({ user: S.meUser(rows[0]) });
   }));

@@ -86,8 +86,8 @@ test('visibility follows the hierarchy', async () => {
   const halit = await as('halit');
   const ayse = await as('ayse');
   const emre = await as('emre');
-  assert.equal(halit.boot.projects.length, 14);
-  assert.deepEqual(new Set(ayse.boot.projects.map((p) => p.ownerId)), new Set([uid(ayse.boot, 'ayse'), uid(ayse.boot, 'emre'), uid(ayse.boot, 'zeynep')]));
+  assert.equal(halit.boot.projects.length, 16);
+  assert.deepEqual(new Set(ayse.boot.projects.map((p) => p.ownerId)), new Set([uid(ayse.boot, 'ayse'), uid(ayse.boot, 'emre'), uid(ayse.boot, 'zeynep'), uid(ayse.boot, 'ali'), uid(ayse.boot, 'ece')]));
   assert.ok(emre.boot.projects.every((p) => p.ownerId === emre.user.id));
   assert.equal(emre.boot.projects.length, 2);
   // Directors do not see another director's meetings that involve nobody from their team
@@ -109,7 +109,8 @@ test('managers cannot see or touch projects outside their scope', async () => {
   assert.equal((await emre.post(`/projects/${other.id}/reports`, { progress: 90, health: 'iyi', note: 'x' })).status, 404);
   assert.equal((await emre.post(`/projects/${other.id}/comments`, { text: 'x' })).status, 404);
   assert.equal((await emre.del(`/projects/${other.id}`)).status, 404);
-  assert.equal((await emre.post('/projects', { name: 'Yeni', ownerId: emre.user.id, start: '2026-01-01', due: '2026-02-01' })).status, 403);
+  // managers may create projects, but only for themselves and their own workers
+  assert.equal((await emre.post('/projects', { name: 'Yeni', ownerId: uid(halit.boot, 'can'), start: '2026-01-01', due: '2026-02-01' })).status, 400);
 });
 
 test('a director assigns projects only inside their own team', async () => {
@@ -156,9 +157,10 @@ test('meeting invitations are limited to people you work with', async () => {
   assert.equal((await emre.del(`/meetings/${ok.data.id}`)).status, 200);
 });
 
-test('lobby: managers cannot post, read lists are private to the author', async () => {
+test('lobby: workers cannot post, read lists are private to the author', async () => {
+  const ali = await as('ali');
+  assert.equal((await ali.post('/announcements', { kind: 'duyuru', title: 'Selam', body: 'Merhaba herkese' })).status, 403);
   const emre = await as('emre');
-  assert.equal((await emre.post('/announcements', { kind: 'duyuru', title: 'Selam', body: 'Merhaba herkese' })).status, 403);
   const a = emre.boot.announcements.find((x) => x.title.startsWith('İlerleme raporları'));
   assert.ok(a.acks.every((id) => id === emre.user.id), 'a manager sees only their own read mark');
   const halit = await as('halit');
@@ -228,6 +230,52 @@ test('the deputy GM can move a manager to another director', async () => {
   assert.ok(ayse.boot.projects.some((p) => p.name === 'ISO 9001 yeniden belgelendirme'));
   const murat = await as('murat');
   assert.ok(!murat.boot.projects.some((p) => p.name === 'ISO 9001 yeniden belgelendirme'));
+});
+
+test('workers see only their own work and cannot manage anyone', async () => {
+  const ali = await as('ali');
+  assert.equal(ali.user.role, 'employee');
+  assert.ok(ali.boot.projects.length > 0 && ali.boot.projects.every((p) => p.ownerId === ali.user.id));
+  assert.equal((await ali.post('/users', { name: 'X Y', title: 'Z Z', username: 'x.y', role: 'employee' })).status, 403);
+  assert.equal((await ali.post('/projects', { name: 'Yeni iş', desc: '', ownerId: ali.user.id, start: '2026-10-01', due: '2026-11-01' })).status, 403);
+  const ece = uid(ali.boot, 'ece');
+  assert.equal((await ali.post(`/users/${ece}/reset-password`)).status, 404);
+  const p = ali.boot.projects[0];
+  assert.equal((await ali.post(`/projects/${p.id}/reports`, { progress: 50, health: 'iyi', note: 'Yarıya geldik' })).status, 201);
+  // the manager above sees the report
+  const zeynep = await as('zeynep');
+  assert.equal(proj(zeynep.boot, p.name).progress, 50);
+});
+
+test('managers add workers and assign them projects; the top account can add workers under itself', async () => {
+  const zeynep = await as('zeynep');
+  assert.equal((await zeynep.post('/users', { name: 'Yeni Müdür', title: 'Müdür', username: 'zz.mudur', role: 'manager' })).status, 403);
+  const r = await zeynep.post('/users', { name: 'Yeni Analist', title: 'Veri Analisti', username: 'yeni.analist', email: '', dept: '', role: 'employee' });
+  assert.equal(r.status, 201);
+  const w = (await as('zeynep')).boot.users.find((x) => x.username === 'yeni.analist');
+  assert.equal(w.role, 'employee');
+  assert.equal(w.managerId, zeynep.user.id);
+  const pr = await zeynep.post('/projects', { name: 'Analist görevi', desc: '', ownerId: w.id, start: '2026-10-01', due: '2026-11-01' });
+  assert.equal(pr.status, 201);
+  // a manager cannot place a worker under someone outside their team
+  const halit = await as('halit');
+  assert.equal((await zeynep.post('/users', { name: 'Başka', title: 'Analist', username: 'baska.biri', role: 'employee', managerId: uid(halit.boot, 'emre') })).status, 400);
+  const h = await halit.post('/users', { name: 'Doğrudan Çalışan', title: 'Veri Analisti', username: 'dogrudan', role: 'employee', managerId: halit.user.id });
+  assert.equal(h.status, 201);
+  const again = await as('halit');
+  assert.equal(again.boot.users.find((x) => x.username === 'dogrudan').managerId, halit.user.id);
+  // a worker cannot be given a manager-level person below them
+  assert.equal((await halit.post('/users', { name: 'Ters', title: 'Müdür', username: 'ters', role: 'manager', managerId: uid(again.boot, 'dogrudan') })).status, 400);
+});
+
+test('only the top account edits its own title', async () => {
+  const halit = await as('halit');
+  const r = await halit.patch('/me', { title: 'Veri Analitiği Müdürü' });
+  assert.equal(r.status, 200);
+  assert.equal(r.data.user.title, 'Veri Analitiği Müdürü');
+  const selin = await as('selin');
+  const before = selin.user.title;
+  assert.equal((await selin.patch('/me', { title: 'Genel Müdür' })).data.user.title, before);
 });
 
 test('scores are validated', async () => {

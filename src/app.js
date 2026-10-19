@@ -22,10 +22,14 @@ function createApp(pool) {
         connectSrc: ["'self'"],
         frameAncestors: ["'none'"],
         formAction: ["'self'"],
-        upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : null,
+        upgradeInsecureRequests: auth.httpsOnly() ? [] : null,
       },
     },
     crossOriginEmbedderPolicy: false,
+    strictTransportSecurity: auth.httpsOnly(),
+    // These two only work on https origins and log console warnings over plain http.
+    crossOriginOpenerPolicy: auth.httpsOnly(),
+    originAgentCluster: auth.httpsOnly(),
   }));
 
   app.get('/healthz', async (req, res) => {
