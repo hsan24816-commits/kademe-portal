@@ -1,0 +1,9 @@
+{
+  "name": "Kademe Yönetim Portalı",
+  "short_name": "Kademe",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#eff3f8",
+  "theme_color": "#1d4f86",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}
