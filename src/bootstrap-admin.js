@@ -12,7 +12,9 @@ async function ensureAdmin(pool, env = process.env) {
     console.warn('No users yet. Set ADMIN_USERNAME and ADMIN_PASSWORD (or run `npm run create-admin`) to create the first account.');
     return null;
   }
-  auth.checkPasswordPolicy(password);
+  if (password.length < 8) {
+    throw new Error('ADMIN_PASSWORD must be at least 8 characters. Change it in your hosting environment settings and redeploy.');
+  }
   const r = await pool.query(
     `INSERT INTO users (username, email, name, title, role, dept, password_hash, must_change_password)
      VALUES ($1, $2, $3, $4, 'gmy', $5, $6, true) RETURNING id`,

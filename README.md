@@ -64,7 +64,7 @@ All demo accounts use the password `demo1234`. Never set `DEMO_MODE=1` on the re
 
 The app is one Node.js process plus a PostgreSQL database. Any host that runs Node or Docker works.
 
-**Render (easiest):** push this repository to GitHub, then in Render choose *New → Blueprint* and pick the repository. `render.yaml` creates the database and the web service; Render asks for `ADMIN_USERNAME`, `ADMIN_PASSWORD` and `ADMIN_NAME`. Check the plan names in `render.yaml` against Render's current pricing before applying.
+**Render (easiest):** push this repository to GitHub, then in Render choose *New → Blueprint* and pick the repository. `render.yaml` creates the database and the web service; Render asks for `ADMIN_USERNAME`, `ADMIN_PASSWORD` (a temporary password of at least 8 characters) and `ADMIN_NAME`. Check the plan names in `render.yaml` against Render's current pricing before applying.
 
 **Railway, Fly.io, a VPS or company server:** use the `Dockerfile` (or `npm ci --omit=dev && npm start`) and set the variables from `.env.example`. Set `DATABASE_SSL=1` if the database requires SSL and `TRUST_PROXY=1` behind a proxy.
 
